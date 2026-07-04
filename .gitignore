@@ -1,0 +1,32 @@
+# Secrets
+.env
+
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Logs (placeholder file is tracked; rotated/runtime logs are not)
+logs/*.log
+logs/*.log.*
+
+# Tooling caches
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+
+# Packaging artifacts
+build/
+dist/
+*.egg-info/
+
+# Editor/OS cruft
+.vscode/
+.idea/
+.DS_Store
