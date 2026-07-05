@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_BASE_URL: Final[str] = "https://testnet.binancefuture.com"
 ORDER_ENDPOINT: Final[str] = "/fapi/v1/order"
+ALGO_ORDER_ENDPOINT: Final[str] = "/fapi/v1/algoOrder"
 EXCHANGE_INFO_ENDPOINT: Final[str] = "/fapi/v1/exchangeInfo"
 
 DEFAULT_TIMEOUT_SECONDS: Final[int] = 10
@@ -279,3 +280,16 @@ class BinanceFuturesClient:
 
         """
         return self._request("POST", ORDER_ENDPOINT, params=params, signed=True)
+
+    def place_algo_order(self, params: dict[str, Any]) -> dict[str, Any]:
+        """Submit a new algorithmic order.
+
+        Args:
+            params: Algorithmic order parameters (symbol, side, type, quantity, etc.).
+
+        Returns:
+            The parsed response from Binance.
+
+        """
+        return self._request("POST", ALGO_ORDER_ENDPOINT, params=params, signed=True)
+

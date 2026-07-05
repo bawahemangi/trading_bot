@@ -254,6 +254,12 @@ def main(argv: list[str] | None = None) -> int:
         A process exit code (0 on success, non-zero on failure).
 
     """
+    if sys.platform == "win32":
+        try:
+            sys.stdout.reconfigure(encoding="utf-8")
+            sys.stderr.reconfigure(encoding="utf-8")
+        except AttributeError:
+            pass
     configure_logging()
     args = build_arg_parser().parse_args(argv)
 

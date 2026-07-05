@@ -108,6 +108,28 @@ def _order_response_payload(params: dict[str, str]) -> dict[str, Any]:
     return response
 
 
+def _algo_order_response_payload(params: dict[str, str]) -> dict[str, Any]:
+    """Build a schema-correct ``/fapi/v1/algoOrder`` response.
+
+    Args:
+        params: The decoded query parameters from the incoming request.
+
+    Returns:
+        A dict shaped like a real Binance Futures algo order response.
+
+    """
+    global _next_order_id
+    _next_order_id += 1
+
+    return {
+        "algoId": _next_order_id,
+        "clientAlgoId": f"mock-{_next_order_id}",
+        "success": True,
+        "msg": "success",
+    }
+
+
+
 class MockBinanceHandler(BaseHTTPRequestHandler):
     """Handles the small subset of Binance Futures endpoints the bot uses."""
 
@@ -135,18 +157,22 @@ class MockBinanceHandler(BaseHTTPRequestHandler):
             self._send_json(404, {"code": -1, "msg": f"Unknown endpoint {path}"})
 
     def do_POST(self) -> None:
-        """Handle POST requests (only ``/fapi/v1/order`` is known).
+        """Handle POST requests (only ``/fapi/v1/order`` and ``/fapi/v1/algoOrder`` are known).
 
         Binance's signed endpoints accept parameters in the query string
         even for POST requests, so parameters are read from ``self.path``
         rather than the request body.
         """
         parsed = urlparse(self.path)
-        if parsed.path != "/fapi/v1/order":
+        if parsed.path == "/fapi/v1/order":
+            params = {key: values[0] for key, values in parse_qs(parsed.query).items()}
+            self._send_json(200, _order_response_payload(params))
+        elif parsed.path == "/fapi/v1/algoOrder":
+            params = {key: values[0] for key, values in parse_qs(parsed.query).items()}
+            self._send_json(200, _algo_order_response_payload(params))
+        else:
             self._send_json(404, {"code": -1, "msg": f"Unknown endpoint {parsed.path}"})
-            return
-        params = {key: values[0] for key, values in parse_qs(parsed.query).items()}
-        self._send_json(200, _order_response_payload(params))
+
 
     def log_message(self, format_: str, *args: object) -> None:
         """Silence default request logging; the bot's own log is what matters."""

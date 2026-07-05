@@ -153,12 +153,33 @@ def _build_order_params(order: OrderRequest) -> dict[str, Any]:
         "type": _BINANCE_API_ORDER_TYPE[order.order_type],
         "quantity": format(order.quantity, "f"),
     }
-    if order.order_type in (LIMIT_ORDER_TYPE, STOP_LIMIT_ORDER_TYPE):
+    if order.order_type == LIMIT_ORDER_TYPE:
         params["price"] = format(order.price, "f")
         params["timeInForce"] = TIME_IN_FORCE_GTC
-    if order.order_type == STOP_LIMIT_ORDER_TYPE:
-        params["stopPrice"] = format(order.stop_price, "f")
     return params
+
+
+def _build_algo_order_params(order: OrderRequest) -> dict[str, Any]:
+    """Translate a validated ``OrderRequest`` into Binance Algo API parameters.
+
+    Args:
+        order: The validated order to translate.
+
+    Returns:
+        A parameter dict ready to be passed to
+        :meth:`bot.client.BinanceFuturesClient.place_algo_order`.
+
+    """
+    return {
+        "algoType": "CONDITIONAL",
+        "symbol": order.symbol,
+        "side": order.side,
+        "type": _BINANCE_API_ORDER_TYPE[order.order_type],
+        "quantity": format(order.quantity, "f"),
+        "price": format(order.price, "f"),
+        "triggerPrice": format(order.stop_price, "f"),
+        "timeInForce": TIME_IN_FORCE_GTC,
+    }
 
 
 def _parse_order_response(order: OrderRequest, response: dict[str, Any]) -> OrderResult:
@@ -175,6 +196,22 @@ def _parse_order_response(order: OrderRequest, response: dict[str, Any]) -> Orde
         through ``float``, so no precision is lost in either direction.
 
     """
+    if "algoId" in response:
+        status = response.get("algoStatus")
+        if not status:
+            status = "NEW" if response.get("success") is True or response.get("msg") == "success" else "FAILED"
+        return OrderResult(
+            order_id=response["algoId"],
+            symbol=response.get("symbol", order.symbol),
+            side=response.get("side", order.side),
+            order_type=order.order_type,
+            status=status,
+            executed_qty=Decimal("0"),
+            avg_price=None,
+            stop_price=order.stop_price,
+            raw_response=response,
+        )
+
     avg_price_raw = response.get("avgPrice")
     avg_price = Decimal(avg_price_raw) if avg_price_raw is not None else None
     if avg_price == 0:
@@ -249,8 +286,13 @@ class OrderManager:
         logger.info("Submitting order: %s", order)
         self.ensure_symbol_is_tradable(order.symbol)
 
-        params = _build_order_params(order)
-        response = self._client.place_order(params)
+        if order.order_type == STOP_LIMIT_ORDER_TYPE:
+            params = _build_algo_order_params(order)
+            response = self._client.place_algo_order(params)
+        else:
+            params = _build_order_params(order)
+            response = self._client.place_order(params)
+
         result = _parse_order_response(order, response)
 
         logger.info(
@@ -259,3 +301,4 @@ class OrderManager:
             result.status,
         )
         return result
+
